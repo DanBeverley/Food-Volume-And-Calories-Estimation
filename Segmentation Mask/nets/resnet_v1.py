@@ -1,5 +1,6 @@
 import tensorflow as tf
-from tensorflow.contrib import slim
+import tf_slim as slim
+from tensorflow.keras import layers
 import resnet_utils
 
 resnet_arg_scope = resnet_utils.resnet_arg_scope
@@ -21,8 +22,8 @@ def bottleneck(inputs, depth, depth_bottleneck, stride, rate=1, outputs_collecti
         scope: Optional variable_scope
     Returns:
         The ResNet unit's output"""
-    with tf.variable_scope(scope, "bottleneck_v1", [inputs])as sc:
-        depth_in = slim.utils.last_dimension(inputs.get_shape(), min_rank = 4)
+    with tf.name_scope(scope or "bottleneck_v1"):
+        depth_in = inputs.shape[-1]
         if depth == depth_in:
             shortcut = resnet_utils.subsample(inputs, stride, "shortcut") # Reduce, downsampling along the spatial dimension
         else:
@@ -34,7 +35,7 @@ def bottleneck(inputs, depth, depth_bottleneck, stride, rate=1, outputs_collecti
         residual = slim.conv2d(residual, depth, [1,1], stride = 1,
                                activation_fn = None, scope = "conv3")
         output = tf.nn.relu(shortcut + residual)
-        return slim.utils.collect_named_outputs(outputs_collections, sc.original_name_scope, output)
+        return output
 def resnet_v1(inputs, blocks, num_classes=None, is_training=True, global_pool = True,
               output_stride = None, include_root_block = True, spatial_squeeze = True, reuse = None,
               scope = None):
@@ -71,6 +72,7 @@ def resnet_v1(inputs, blocks, num_classes=None, is_training=True, global_pool = 
       is_training: whether is training or not.
       global_pool: If True, we perform global average pooling before computing the
         logits. Set to True for image classification, False for dense prediction.
+        Dense prediction meaning predicting a label for each pixel in the image
       output_stride: If None, then the output will be computed at the nominal
         network stride. If output_stride is not None, it specifies the requested
         ratio of input to output spatial resolution.
@@ -96,27 +98,34 @@ def resnet_v1(inputs, blocks, num_classes=None, is_training=True, global_pool = 
     Raises:
       ValueError: If the target output_stride is not valid.
     """
-    with tf.variable_scope(scope, "resnet_v1", [inputs], reuse=reuse) as sc:
-        end_points_collection = sc.name + "_end_points"
-        with slim.arg_scope([slim.conv2d, bottleneck, resnet_utils.stack_blocks_dense],
-                            outputs_collections = end_points_collection):
-            with slim.arg_scope([slim.batch_norm], is_training = is_training):
-                net = inputs
-                if include_root_block:
-                    if output_stride is not None:
-                        if output_stride%4 != 0:
-                            raise ValueError("The output_stride needs to be a multiple of 4.")
-                        output_stride /= 4
-                    net = resnet_utils.conv2d_same(net, 64, 7, stride = 2, scope = "conv1")
-                    net = slim.max_pool2d(net, [3,3], stride = 2, scope = "pool1")
-                    net = slim.utils.collect_named_outputs(end_points_collection, "pool2", net)
-                net = resnet_utils.stack_blocks_dense(net, blocks, output_stride)
-                end_points = slim.utils.convert_collection_to_dict(end_points_collection)
+    end_points = {}
+    with tf.name_scope(scope):
+        net = inputs
+        # Root block
+        if include_root_block:
+            if output_stride is not None:
+                if output_stride%4 != 0:
+                    raise ValueError("The output_stride needs to be a multiple of 4.")
+                output_stride /= 4
+            net = resnet_utils.conv2d_same(net, 64, 7, stride = 2, scope = "conv1")
+            net = slim.max_pool2d(net, [3,3], stride = 2, scope = "pool1")
+            end_points["pool2"] = net
+        # Stacking blocks
+        net = resnet_utils.stack_blocks_dense(net, blocks, output_stride)
+        # Collect intermediate layers
+        end_points["pool3"] = end_points['resnet_v1_101/block1']
+        end_points["pool4"] = end_points["resnet_v1_101/block2"]
+        end_points["pool5"] = net
 
-                end_points["pool3"] = end_points['resnet_v1_101/block1']
-                end_points["pool4"] = end_points["resnet_v1_101/block2"]
-                end_points["pool5"] = net
-                return net, end_points
+        # Global pooling (if applicable)
+        if global_pool:
+            net = tf.reduce_mean(net, axis=[1,2], name="global_pool", keepdims = True)
+        if num_classes is not None:
+            net = tf.keras.layers.Dense(num_classes, activation = None, name= logits)(net)
+            if spatial_squeeze:
+                net = tf.squeeze(net, axis=[1,2], name="spatial_squeeze")
+
+        return net, end_points
 
 resnet_v1.default_image_size = 224
 def resnet_v1_50(inputs,

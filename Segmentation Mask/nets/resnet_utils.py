@@ -11,32 +11,33 @@ class Block(collections.namedtuple("Block", ["scope","unit_fn","args"])):
     """A named tuple describing a ResNet block
     scope: The scope of the `Block`.
       unit_fn: The ResNet unit function which takes as input a `Tensor` and
-        returns another `Tensor` with the output of the ResNet unit.
-      args: A list of length equal to the number of units in the `Block`. The list
-        contains one (depth, depth_bottleneck, stride) tuple for each unit in the
-        block to serve as argument to unit_fn."""
+               returns another `Tensor` with the output of the ResNet unit.
+      args   : A list of length equal to the number of units in the `Block`. The list
+               contains one (depth, depth_bottleneck, stride) tuple for each unit in the
+               block to serve as argument to unit_fn."""
 def subsample(inputs, factor, scope = None):
-    """Subsamples the input along with the spatial dimensions
+    """Sub-samples the input along with the spatial dimensions
+       In other word, reduce the size of original data yet remain structure
     Args:
       inputs: A `Tensor` of size [batch, height_in, width_in, channels].
       factor: The subsampling factor.
-      scope: Optional variable_scope.
+      scope : Optional variable_scope.
     Returns:
-      output: A `Tensor` of size [batch, height_out, width_out, channels] with the
-        input, either intact (if factor == 1) or subsampled (if factor > 1). """
+        output: A `Tensor` of size [batch, height_out, width_out, channels] with the
+        input, either intact (if factor == 1) or sub-sampled (if factor > 1). """
     if factor == 1:
         return inputs
     else:
         return slim.max_pool2d(inputs, [1,1], stride = factor, scope = scope)
 def conv2d_same(inputs, num_outputs, kernel_size, stride, rate = 1, scope = None):
-    """Strided 2-D convolution with "SAME" padding
+    """Stride 2-D convolution with "SAME" padding
     When stride > 1, do explicit zero-padding, followed by conv2d with 'VALID' padding
     ||Note||
        net = conv2d_same(inputs, num_outputs, 3, stride = stride)
     equivalent to
        net = slim.conv2d(inputs, num_outputs, 3, stride = 1, padding = "SAME")
        net = subsample(net, factor = stride)
-    where as
+    whereas
        net = slim.conv2d(inputs, num_outputs, 3, stride = stride, padding = "SAME")
     is different when the input's height or width is even , which is why correct function need
     to be added. For more details, check out ResnetUtilsTest.testConv2DSameEven()
@@ -85,13 +86,13 @@ def stack_blocks_dense(net, blocks, output_stride = None,
        Control of the output feature density is implemented by atrous convolution.
 
        Args:
-         net: A `Tensor` of size [batch, height, width, channels].
+         net   : A `Tensor` of size [batch, height, width, channels].
          blocks: A list of length equal to the number of ResNet `Blocks`. Each
-           element is a ResNet `Block` object describing the units in the `Block`.
+                 element is a ResNet `Block` object describing the units in the `Block`.
          output_stride: If `None`, then the output will be computed at the nominal
            network stride. If output_stride is not `None`, it specifies the requested
            ratio of input to output spatial resolution, which needs to be equal to
-           the product of unit strides from the start up to some level of the ResNet.
+           the product of unit strides from the startup to some level of the ResNet.
            For example, if the ResNet employs units with strides 1, 2, 1, 3, 4, 1,
            then valid values for the output_stride are 1, 2, 6, 24 or None (which
            is equivalent to output_stride=24).
@@ -147,7 +148,7 @@ def resnet_arg_scope(weight_decay=0.0001,
       released at https://github.com/KaimingHe/deep-residual-networks. When
       training ResNets from scratch, they might need to be tuned.
     Args:
-      weight_decay: The weight decay to use for regularizing the model.
+      weight_decay    : The weight decay to use for regularizing the model.
       batch_norm_decay: The moving average decay when estimating layer activation
         statistics in batch normalization.
       batch_norm_epsilon: Small constant to prevent division by zero when
