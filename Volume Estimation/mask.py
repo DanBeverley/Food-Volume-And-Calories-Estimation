@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw
 color = {"rice":[255,0,255], "vegetable":[255,255,0], "chicken":[0,255,255]}
 
 def polygons_to_mask(img_shape, polygons):
-    mask = np.zeros(img_shape, dtype = np.uint8)
+    mask = np.zeros(img_shape, dtype = np.uint8) # Zero-filled mask
     mask = Image.fromarray(mask)
     xy   = list(map(tuple, polygons))
     ImageDraw.Draw(mask).polygon(xy = xy, outline = 1, fill = 1)
