@@ -11,25 +11,26 @@ import resnet
 import densenet
 
 class _UpProjection(nn.Sequential):
-    """First feed forward layer"""
+    """ Usage: Gradually increase the spatial dimensions of feature maps while preserving semantic information
+    First feed forward layer"""
     def __init__(self, num_input_features, num_output_features):
         super(_UpProjection, self).__init__()
-        self.conv1 = nn.Conv2d(num_input_features, num_output_features,kernel_size=5,
-                               stride=1, padding=2, bias=False)
-        self.bn1 = nn.BatchNorm2d(num_output_features)
-        self.relu = nn.ReLU(inplace=True)
+        self.conv1   = nn.Conv2d(num_input_features, num_output_features,kernel_size=5,
+                                 stride=1, padding=2, bias=False)
+        self.bn1     = nn.BatchNorm2d(num_output_features)
+        self.relu    = nn.ReLU(inplace=True)
         self.conv1_2 = nn.Conv2d(num_output_features, num_input_features,
                                  kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn1_2 = nn.BatchNorm2d(num_output_features)
-        self.conv2 = nn.Conv2d(num_input_features, num_output_features, kernel_size=5,
-                               stride=1, padding=2, bias=False)
-        self.bn2 = nn.BatchNorm2d(num_output_features)
+        self.bn1_2   = nn.BatchNorm2d(num_output_features)
+        self.conv2   = nn.Conv2d(num_input_features, num_output_features, kernel_size=5,
+                                 stride=1, padding=2, bias=False)
+        self.bn2     = nn.BatchNorm2d(num_output_features)
     def forward(self,x , size):
         x = F.upsample(x, size=size, mode="bilinear")
         x_conv1 = self.relu(self.bn1(self.conv1(x)))
-        bran1 = self.bn1_2(self.conv1_2(x_conv1))
-        bran2 = self.bn2(self.conv2(x))
-        out = self.relu(bran1 + bran2)
+        bran1   = self.bn1_2(self.conv1_2(x_conv1))
+        bran2   = self.bn2(self.conv2(x))
+        out     = self.relu(bran1 + bran2)
         return out
 
 class E_resnet(nn.Module):
@@ -106,11 +107,12 @@ class E_senet(nn.Module):
 
 class D(nn.Module):
     def __init__(self, num_features = 2048):
+        """provides a high-resolution output with information from various scales of the encoder"""
         super(D, self).__init__()
         self.conv = nn.Conv2d(num_features, num_features//2, kernel_size=1, stride=1,
                               bias = False)
         num_features = num_features//2
-        self.bn = nn.BatchNorm2d(num_features)
+        self.bn  = nn.BatchNorm2d(num_features)
 
         self.up1 = _UpProjection(num_input_features=num_features,
                                  num_output_features=num_features//2)
@@ -136,7 +138,7 @@ class D(nn.Module):
 
 
 class MFF(nn.Module):
-
+    """Multi-Feature Fusion"""
     def __init__(self, block_channel, num_features=64):
         super(MFF, self).__init__()
 
@@ -152,9 +154,8 @@ class MFF(nn.Module):
         self.up4 = _UpProjection(
             num_input_features=block_channel[3], num_output_features=16)
 
-        self.conv = nn.Conv2d(
-            num_features, num_features, kernel_size=5, stride=1, padding=2, bias=False)
-        self.bn = nn.BatchNorm2d(num_features)
+        self.conv = nn.Conv2d(num_features, num_features, kernel_size=5, stride=1, padding=2, bias=False)
+        self.bn   = nn.BatchNorm2d(num_features)
 
     def forward(self, x_block1, x_block2, x_block3, x_block4, size):
         x_m1 = self.up1(x_block1, size)
@@ -163,6 +164,7 @@ class MFF(nn.Module):
         x_m4 = self.up4(x_block4, size)
 
         x = self.bn(self.conv(torch.cat((x_m1, x_m2, x_m3, x_m4), 1)))
+        # This creates a single tensor with channels equal to the sum of channels in each _UpProjection output (4 * 16 = 64)
         x = F.relu(x)
 
         return x
@@ -175,14 +177,12 @@ class R(nn.Module):
         num_features = 64 + block_channel[3] // 32
         self.conv0 = nn.Conv2d(num_features, num_features,
                                kernel_size=5, stride=1, padding=2, bias=False)
-        self.bn0 = nn.BatchNorm2d(num_features)
-
+        self.bn0   = nn.BatchNorm2d(num_features)
         self.conv1 = nn.Conv2d(num_features, num_features,
                                kernel_size=5, stride=1, padding=2, bias=False)
-        self.bn1 = nn.BatchNorm2d(num_features)
-
-        self.conv2 = nn.Conv2d(
-            num_features, 1, kernel_size=5, stride=1, padding=2, bias=True)
+        self.bn1   = nn.BatchNorm2d(num_features)
+        self.conv2 = nn.Conv2d(num_features, 1,
+                               kernel_size=5, stride=1, padding=2, bias=True)
 
     def forward(self, x):
         x0 = self.conv0(x)

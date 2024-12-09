@@ -8,14 +8,14 @@ color = {"rice":[255,0,255], "vegetable":[255,255,0], "chicken":[0,255,255]}
 def polygons_to_mask(img_shape, polygons):
     mask = np.zeros(img_shape, dtype = np.uint8)
     mask = Image.fromarray(mask)
-    xy = list(map(tuple, polygons))
+    xy   = list(map(tuple, polygons))
     ImageDraw.Draw(mask).polygon(xy = xy, outline = 1, fill = 1)
     mask = np.array(mask, dtype = bool)
     return mask
 def mask2box(mask):
     index = np.argwhere(mask == 1)
-    rows = index[:,0]
-    clos = index[:,1]
+    rows  = index[:,0]
+    clos  = index[:,1]
     left_top_r = np.min(rows)
     left_top_c = np.min(clos)
     right_bottom_r = np.max(rows)
