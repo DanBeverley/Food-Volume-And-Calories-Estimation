@@ -1,11 +1,13 @@
+import os
 import re
 import cv2
 import time
-import os.shutil
+import shutil
 import sys
 import numpy as np
 import tensorflow as tf
-slim = tf.contrib.slim
+import tf_slim as slim
+slim = slim
 
 sys.path.append(os.getcwd())
 from nets import model as model

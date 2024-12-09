@@ -1,6 +1,6 @@
 import tensorflow as tf
-from tensorflow.contrib import slim
-from nets import resnet_v1
+import tf_slim as slim
+import resnet_v1
 from utils.training import get_valid_logits_and_labels
 FLAGS = tf.app.flags.FLAGS
 
