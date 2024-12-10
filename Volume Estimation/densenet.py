@@ -3,12 +3,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
 from collections import OrderedDict
+from torchvision.models import densenet121, densenet169, densenet201
 import pdb
 import copy
 from torchvision import utils
 import numpy as np
 
 __all__ = ["DenseNet", "densenet121", "densenet169", "densenet201", "densenet161"]
+
+
 model_urls = {
     'densenet121': 'https://download.pytorch.org/models/densenet121-a639ec97.pth',
     'densenet169': 'https://download.pytorch.org/models/densenet169-b2777c0a.pth',
@@ -43,13 +46,14 @@ class _DenseLayer(nn.Sequential):
         self.drop_rate = drop_rate
     def forward(self, x):
         new_features = super(_DenseLayer, self).forward(x)
+        # Prevent overfitting
         if self.drop_rate > 0:
             new_features = F.dropout(new_features, p=self.drop_rate, training = self.training)
         return torch.cat([x, new_features], 1)
 
 class _DenseBlock(nn.Sequential):
     def __init__(self, num_layers, num_input_features, bn_size, growth_rate, drop_rate):
-        super(_DenseLayer, self).__init__()
+        super(_DenseBlock, self).__init__()
         for i in range(num_layers):
             layer = _DenseLayer(num_input_features + i * growth_rate, growth_rate,
                                 bn_size, drop_rate)
@@ -75,7 +79,7 @@ class DenseNet(nn.Module):
                                 stride = 2, padding = 3, bias = False)),
             ("norm0", nn.BatchNorm2d(num_init_features)),
             ("relu0", nn.ReLU(inplace=True)),
-            ("pool0", nn.MaxPool)
+            ("pool0", nn.MaxPool2d(kernel_size=3, stride=2, padding = 1))
         ]))
         # Each DenseBlock
         num_features = num_init_features
